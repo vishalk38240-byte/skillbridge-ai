@@ -580,6 +580,7 @@ function SpecialistsSection() {
   const categories=['AI Services','Development & IT','Design & Creative','Sales & Marketing','Writing & Translation','Admin & Support','Finance & Accounting','HR & Training','Legal'];
   const [activeCat,setActiveCat]=useState('AI Services'); const [selectedSpecialist,setSelectedSpecialist]=useState(null);
   const [requestMode,setRequestMode]=useState(''); const [requestName,setRequestName]=useState(''); const [requestEmail,setRequestEmail]=useState(''); const [requestDetails,setRequestDetails]=useState(''); const [requestStatus,setRequestStatus]=useState('');
+  const [requestDate,setRequestDate]=useState(''); const [requestBudget,setRequestBudget]=useState(''); const [requestTimeline,setRequestTimeline]=useState('');
   const submitMentorRequest=(event)=>{
     event.preventDefault();
     if(!selectedSpecialist||!requestName.trim()||!requestEmail.trim()||!requestDetails.trim())return;
