@@ -1227,6 +1227,29 @@ function SpecificAnalysis({ user, userData, jobId, onNavigate }) {
   );
 }
 
+// --- Local AI Fallback Logic ---
+function generateLocalFallbackResponse(userMessage, userData) {
+  const query = userMessage.toLowerCase().trim();
+  const userName = userData?.name?.trim().split(/\s+/)[0] || "there";
+  const targetRole = userData?.targetJob || "career";
+  const isFresher = userData?.isFresher ? "entry-level" : "experienced";
+
+  if (query.includes("hello") || query.includes("hi") || query.includes("hey")) {
+    return `Hi ${userName}! I'm currently running in offline mode. How can I help you with your ${targetRole} roadmap today?`;
+  }
+  if (query.includes("roadmap") || query.includes("progress") || query.includes("status")) {
+    return `You are currently focusing on the **${targetRole}** path. Keep adding skills to your profile to see your momentum grow!`;
+  }
+  if (query.includes("next") || query.includes("do") || query.includes("recommend") || query.includes("help")) {
+    return `Right now, the best next step is to make sure your profile is complete, and review the "Job Market" tab to see which skills you need for ${targetRole} roles.`;
+  }
+  if (query.includes("goal") || query.includes("role") || query.includes("job")) {
+    return `Your target role is set to **${targetRole}** on the ${isFresher} track.`;
+  }
+
+  return `(Offline Mode) I can help with basic questions about your ${targetRole} roadmap, progress, or next steps!`;
+}
+
 function AIChatbot({ userData }) {
   const [isOpen, setIsOpen] = useState(false);
   const firstName = userData.name?.trim().split(/\s+/)[0];
@@ -1258,7 +1281,10 @@ function AIChatbot({ userData }) {
         skills: userData.skills, location: userData.location, score: 75
       }, responseText => setMessages([...newMessages, { role: 'model', content: responseText }]));
     } catch (err) {
-      setMessages([...newMessages, { role: 'model', content: err.message || "Sorry, I'm having trouble connecting right now. Please try again in a moment." }]);
+      // FALLBACK LOGIC
+      console.warn("AI API failed, using local fallback response:", err.message);
+      const fallbackReply = generateLocalFallbackResponse(userMsg, userData);
+      setMessages([...newMessages, { role: 'model', content: fallbackReply }]);
     } finally {
       setLoading(false);
     }
