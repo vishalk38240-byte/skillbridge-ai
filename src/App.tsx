@@ -79,9 +79,9 @@ const parseAIJson = (text) => {
   else if (clean.startsWith(fence)) clean = clean.slice(3);
   if (clean.endsWith(fence)) clean = clean.slice(0, -3);
   clean = clean.trim();
-  try { return JSON.parse(clean); } catch { /* Try a JSON block embedded in surrounding text. */ }
+  try { const parsed = JSON.parse(clean); return parsed && !Array.isArray(parsed) && Object.prototype.hasOwnProperty.call(parsed, 'result') ? parsed.result : parsed; } catch { /* Try a JSON block embedded in surrounding text. */ }
   const match = clean.match(/[\[{][\s\S]*[\]}]/);
-  if (match) { try { return JSON.parse(match[0]); } catch { /* Continue to the clear error below. */ } }
+  if (match) { try { const parsed = JSON.parse(match[0]); return parsed && !Array.isArray(parsed) && Object.prototype.hasOwnProperty.call(parsed, 'result') ? parsed.result : parsed; } catch { /* Continue to the clear error below. */ } }
   throw new Error('The AI service returned an unreadable structured response.');
 };
 
