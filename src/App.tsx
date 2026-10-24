@@ -5,7 +5,7 @@ import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, 
 import { getFirestore, doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { 
   LayoutDashboard, FileText, Map, LogOut, ChevronRight, CheckCircle, Circle, 
-  Briefcase, Zap, BrainCircuit, Activity, ExternalLink, Loader2, Search, 
+  Briefcase, Zap, BrainCircuit, Activity, ExternalLink, Loader2, Search, Menu, 
   MessageSquare, X, Send, Newspaper, GraduationCap, Users, Code, PenTool, BarChart3, LineChart, ChevronDown
 } from 'lucide-react';
 
@@ -349,9 +349,9 @@ export default function App() {
           onExploreMarketplace={() => navigate('marketplace')}
         />
       ) : (
-        <div className="flex h-screen overflow-hidden relative">
+        <div className="flex h-[100dvh] overflow-hidden relative">
           <Sidebar currentView={currentView} onNavigate={navigate} onLogout={() => { if (localAuthMode) { localStorage.removeItem('skillbridge_preview_session'); setUser(null); } else { signOut(auth); } navigate('landing'); }} />
-          <main className="flex-1 overflow-y-auto bg-[#0B1020] p-6 lg:p-12 relative">
+          <main className="flex-1 overflow-y-auto bg-[#0B1020] px-4 py-5 sm:p-6 lg:p-12 pb-24 md:pb-6 relative">
              <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-[#3B82F6] opacity-[0.03] blur-[150px] rounded-full pointer-events-none"></div>
              
              <div className="relative z-10 h-full">
@@ -369,6 +369,7 @@ export default function App() {
             </div>
           </main>
           
+          <nav aria-label="App navigation" className="md:hidden fixed bottom-0 left-0 right-0 z-40 grid grid-cols-5 border-t border-[#263554] bg-[#0B1020]/95 backdrop-blur-lg px-1 pt-2" style={{paddingBottom:'calc(0.5rem + env(safe-area-inset-bottom))'}}>{[['dashboard','Home',LayoutDashboard],['profile','Profile',Users],['market','Jobs',Search],['marketplace','Work',Briefcase]].map(([view,label,Icon])=><button key={view} onClick={()=>navigate(view)} aria-current={currentView===view?'page':undefined} className={'flex min-w-0 flex-col items-center gap-1 rounded-lg px-1 py-2 text-[10px] '+(currentView===view?'text-cyan-200':'text-slate-400')}><Icon size={18}/><span className="truncate">{label}</span></button>)}<button onClick={()=>{if(localAuthMode){localStorage.removeItem('skillbridge_preview_session');setUser(null);}else{signOut(auth);}navigate('landing');}} className="flex min-w-0 flex-col items-center gap-1 rounded-lg px-1 py-2 text-[10px] text-slate-400"><LogOut size={18}/><span>Log out</span></button></nav>
           {/* Global AI Chatbot */}
           <AIChatbot userData={userData} />
         </div>
@@ -587,7 +588,7 @@ function SpecialistsSection() {
     catch{setRequestStatus('Could not save this request in the browser. Please try again.');}
   };
   const visibleSpecialists=careerMentors.filter(mentor=>mentor.domain===activeCat);
-  return <section id="specialists" className="max-w-[1400px] mx-auto px-8 py-24"><p className="text-xs font-bold uppercase tracking-[0.2em] text-[#60A5FA] mb-3">Practical guidance from people in the field</p><h2 className="text-4xl font-bold mb-4 text-white">Learn from Top Mentors & Specialists</h2><p className="text-slate-400 mb-9">Browse {careerMentors.length} mentors across nine departments. Ratings and reviews are sample preview content.</p>
+  return <section id="specialists" className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-24"><p className="text-xs font-bold uppercase tracking-[0.2em] text-[#60A5FA] mb-3">Practical guidance from people in the field</p><h2 className="text-4xl font-bold mb-4 text-white">Learn from Top Mentors & Specialists</h2><p className="text-slate-400 mb-9">Browse {careerMentors.length} mentors across nine departments. Ratings and reviews are sample preview content.</p>
     <div className="flex flex-wrap gap-3 mb-10">{categories.map(category=><button key={category} onClick={()=>setActiveCat(category)} className={'px-5 py-3 rounded-xl border text-sm font-medium '+(activeCat===category?'bg-white text-[#0B1020] border-white':'bg-[#121A2F] text-slate-300 border-[#192440] hover:border-[#3B82F6]')}>{category}</button>)}</div>
     <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">{visibleSpecialists.map(mentor=><button type="button" key={mentor.name} onClick={()=>{setSelectedSpecialist(mentor);setRequestMode('');setRequestStatus('');}} className="group text-left bg-[#121A2F] border border-[#192440] p-5 rounded-2xl hover:border-[#3B82F6] transition-all"><div className="flex gap-4 items-center"><img src={mentor.img} alt={mentor.name} className="w-16 h-16 rounded-xl object-cover"/><div className="min-w-0"><p className="font-bold text-white truncate">{mentor.name}</p><p className="text-xs text-slate-400 line-clamp-2">{mentor.role}</p><p className="text-amber-300 text-xs mt-1">★ {mentor.rating.toFixed(1)} <span className="text-slate-500">· {mentor.reviewCount} reviews</span></p></div></div><p className="text-sm text-slate-400 leading-relaxed mt-4 line-clamp-2">“{mentor.review}”</p><div className="flex flex-wrap gap-1.5 mt-4">{mentor.skills.slice(0,3).map(skill=><span key={skill} className="text-[11px] bg-[#0B1020] text-slate-300 border border-[#192440] px-2 py-1 rounded-full">{skill}</span>)}</div><p className="text-xs text-[#60A5FA] mt-4">View mentor and reviews →</p></button>)}</div>
     {selectedSpecialist&&<div className="fixed inset-0 bg-[#0B1020]/80 backdrop-blur-sm z-[90] flex items-center justify-center p-4" onClick={()=>setSelectedSpecialist(null)}><div role="dialog" aria-modal="true" className="bg-[#121A2F] border border-[#192440] rounded-3xl p-8 w-full max-w-xl relative shadow-2xl" onClick={event=>event.stopPropagation()}><button aria-label="Close mentor details" onClick={()=>setSelectedSpecialist(null)} className="absolute top-6 right-6 text-slate-400"><X size={20}/></button><div className="flex items-center gap-5 mb-6"><img src={selectedSpecialist.img} alt={selectedSpecialist.name} className="w-20 h-20 rounded-2xl object-cover"/><div><h3 className="text-xl font-bold text-white">{selectedSpecialist.name}</h3><p className="text-slate-400 text-sm">{selectedSpecialist.role}</p><p className="text-amber-300 text-sm mt-1">★ {selectedSpecialist.rating.toFixed(1)} · {selectedSpecialist.reviewCount} learner reviews</p></div></div><div className="bg-[#0B1020] p-5 rounded-2xl border border-[#192440] mb-5"><p className="text-xs uppercase tracking-wide font-bold text-slate-500 mb-2">Learner review · preview</p><p className="text-slate-200 leading-relaxed">“{selectedSpecialist.review}”</p></div><div className="flex flex-wrap gap-2 mb-6">{selectedSpecialist.skills.map(skill=><span key={skill} className="text-xs text-slate-300 bg-[#0B1020] border border-[#192440] px-3 py-1.5 rounded-full">{skill}</span>)}</div><div className="grid grid-cols-3 gap-3 text-center text-sm mb-6"><div className="bg-[#0B1020] rounded-xl p-3"><span className="block text-slate-500 text-xs">Experience</span><strong>{selectedSpecialist.exp}</strong></div><div className="bg-[#0B1020] rounded-xl p-3"><span className="block text-slate-500 text-xs">Mentoring</span><strong>{selectedSpecialist.teachTime}</strong></div><div className="bg-[#0B1020] rounded-xl p-3"><span className="block text-slate-500 text-xs">Rate</span><strong>{selectedSpecialist.rate}</strong></div></div><div className="grid sm:grid-cols-2 gap-3"><button type="button" onClick={()=>{setRequestMode('session');setRequestStatus('');}} className="bg-[#3B82F6] hover:bg-[#60A5FA] text-white py-3 px-4 rounded-xl font-bold flex justify-center items-center gap-2"><MessageSquare size={16}/> Book a mentoring session</button><button type="button" onClick={()=>{setRequestMode('project');setRequestStatus('');}} className="border border-cyan-300/40 text-cyan-100 hover:bg-cyan-300/10 py-3 px-4 rounded-xl font-bold flex justify-center items-center gap-2"><Briefcase size={16}/> Invite to a project</button></div>{requestMode&&<form onSubmit={submitMentorRequest} className="mt-5 space-y-3 rounded-2xl border border-[#263554] bg-[#0B1020] p-5"><div><p className="font-semibold text-white">{requestMode==='session'?'Request a session':'Send a project invitation'}</p><p className="text-xs text-slate-400 mt-1">Tell {selectedSpecialist.name.split(' ')[0]} what you need help with.</p></div><div className="grid sm:grid-cols-2 gap-3"><input required value={requestName} onChange={event=>setRequestName(event.target.value)} placeholder="Your name" className="rounded-lg bg-[#121A2F] border border-[#263554] px-3 py-2 text-sm text-white placeholder:text-slate-500"/><input required type="email" value={requestEmail} onChange={event=>setRequestEmail(event.target.value)} placeholder="Your email" className="rounded-lg bg-[#121A2F] border border-[#263554] px-3 py-2 text-sm text-white placeholder:text-slate-500"/></div><textarea required rows={3} value={requestDetails} onChange={event=>setRequestDetails(event.target.value)} placeholder={requestMode==='session'?'What skills or goals would you like to discuss?':'Describe the project, role, and expected timeline.'} className="w-full rounded-lg bg-[#121A2F] border border-[#263554] px-3 py-2 text-sm text-white placeholder:text-slate-500"/><button type="submit" className="w-full bg-cyan-300 hover:bg-cyan-200 text-slate-950 py-2.5 rounded-lg font-bold flex justify-center items-center gap-2"><Send size={15}/> Save request</button>{requestStatus&&<p role="status" className="text-xs text-emerald-300">{requestStatus}</p>}<p className="text-[11px] text-slate-500">Preview only: requests are saved in this browser and are not delivered to the mentor.</p></form>}</div></div>}
@@ -607,6 +608,7 @@ const roadmapSkillCatalog = {
 
 function LandingPage({ onGetStarted, onLogin, onRegister, onExploreMarketplace }) {
   const [activeTab, setActiveTab] = useState('hire');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [selectedRoadmapCategory, setSelectedRoadmapCategory] = useState('');
   const [selectedRoadmapSkills, setSelectedRoadmapSkills] = useState([]);
   const [customRoadmapSkill, setCustomRoadmapSkill] = useState('');
@@ -635,12 +637,12 @@ function LandingPage({ onGetStarted, onLogin, onRegister, onExploreMarketplace }
 
   return (
     <div className="flex flex-col min-h-screen overflow-y-auto bg-[#0B1020] text-white scroll-smooth">
-      <header className="flex justify-between items-center px-8 py-6 max-w-[1400px] w-full mx-auto z-50 border-b border-[#121A2F]/50 relative">
-        <div className="text-2xl font-bold tracking-tight flex items-center gap-2 cursor-pointer" onClick={() => window.scrollTo(0,0)}>
+      <header className="flex flex-wrap justify-between items-center gap-y-3 px-4 sm:px-6 lg:px-8 py-4 md:py-6 max-w-[1400px] w-full mx-auto z-50 border-b border-[#121A2F]/50 relative">
+        <div className="text-xl sm:text-2xl font-bold tracking-tight flex items-center gap-2 cursor-pointer" onClick={() => window.scrollTo(0,0)}>
           <BrainCircuit className="text-[#3B82F6]" />
           SkillBridge
         </div>
-        <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-300">
+        <nav className="hidden lg:flex items-center gap-6 xl:gap-8 text-sm font-medium text-slate-300">
           <div className="relative group cursor-pointer py-4">
             <span className="hover:text-white flex items-center gap-1 transition-colors">Find roadmaps <ChevronDown size={14}/></span>
             <div className="absolute top-full left-0 w-[200px] bg-[#121A2F] border border-[#192440] rounded-xl shadow-2xl p-2 hidden group-hover:flex flex-col opacity-0 group-hover:opacity-100 transition-opacity z-50">
@@ -690,12 +692,14 @@ function LandingPage({ onGetStarted, onLogin, onRegister, onExploreMarketplace }
           <a href="#why-skillbridge" className="hover:text-white cursor-pointer transition-colors py-4">Why SkillBridge</a>
           <a href="#specialists" className="hover:text-white cursor-pointer transition-colors py-4">Enterprise</a>
         </nav>
-        <div className="flex gap-4">
-          <button onClick={() => onLogin(activeTab)} className="hidden md:block text-slate-300 hover:text-white font-medium text-sm">Log in</button>
-          <button onClick={() => onRegister(activeTab)} className="bg-[#3B82F6] hover:bg-[#60A5FA] text-white px-5 py-2 rounded-full font-medium transition-colors text-sm">
+        <div className="flex gap-2 md:gap-4 items-center">
+          <button type="button" aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'} aria-expanded={mobileMenuOpen} onClick={() => setMobileMenuOpen(open => !open)} className="lg:hidden inline-flex items-center justify-center w-10 h-10 rounded-full border border-[#263554] text-slate-200 hover:bg-[#121A2F]">{mobileMenuOpen ? <X size={19}/> : <Menu size={19}/>}</button>
+          <button onClick={() => onLogin(activeTab)} className="hidden lg:block text-slate-300 hover:text-white font-medium text-sm">Log in</button>
+          <button onClick={() => onRegister(activeTab)} className="hidden lg:block bg-[#3B82F6] hover:bg-[#60A5FA] text-white px-5 py-2 rounded-full font-medium transition-colors text-sm">
             Sign up
           </button>
         </div>
+        {mobileMenuOpen&&<nav aria-label="Mobile navigation" className="lg:hidden basis-full rounded-2xl border border-[#263554] bg-[#10182B] p-4 shadow-xl"><div className="grid grid-cols-2 gap-2"><a onClick={()=>setMobileMenuOpen(false)} href="#roadmaps" className="rounded-xl px-3 py-3 text-sm text-slate-200 hover:bg-white/5">Find roadmaps</a><button onClick={()=>{setMobileMenuOpen(false);onExploreMarketplace();}} className="rounded-xl px-3 py-3 text-left text-sm text-slate-200 hover:bg-white/5">Marketplace</button><a onClick={()=>setMobileMenuOpen(false)} href="#why-skillbridge" className="rounded-xl px-3 py-3 text-sm text-slate-200 hover:bg-white/5">Salary insights</a><a onClick={()=>setMobileMenuOpen(false)} href="#specialists" className="rounded-xl px-3 py-3 text-sm text-slate-200 hover:bg-white/5">Mentors</a></div><p className="text-[11px] font-bold uppercase tracking-widest text-slate-500 mt-4 mb-2">Explore outcomes</p><div className="grid grid-cols-2 gap-2">{[['Build my website','Development & IT'],['Design my brand','Design & Creative'],['Paid ad campaigns','Sales & Marketing'],['Automate workflows','AI Services'],['AI customer support','AI Services'],['Build sales pipeline','Sales & Marketing']].map(([label,category])=><button key={label} onClick={()=>{setSelectedRoadmapCategory(category);setSelectedRoadmapSkills([]);setMobileMenuOpen(false);setTimeout(()=>document.getElementById('roadmaps')?.scrollIntoView({behavior:'smooth'}),50);}} className="rounded-xl border border-white/5 bg-white/[0.03] px-3 py-3 text-left text-xs text-slate-300 hover:bg-white/10">{label}</button>)}</div><div className="grid grid-cols-2 gap-2 border-t border-[#263554] mt-4 pt-3"><button onClick={()=>{setMobileMenuOpen(false);onLogin(activeTab);}} className="rounded-xl px-3 py-3 text-left text-sm text-slate-200 hover:bg-white/5">Log in</button><button onClick={()=>{setMobileMenuOpen(false);onRegister(activeTab);}} className="rounded-xl px-3 py-3 text-left text-sm text-cyan-200 hover:bg-white/5">Sign up</button></div></nav>}
       </header>
 
       <main className="flex-1">
@@ -704,7 +708,7 @@ function LandingPage({ onGetStarted, onLogin, onRegister, onExploreMarketplace }
             Discover personalized career roadmaps. <span className="underline ml-2 font-bold">Get started →</span>
           </button>
 
-          <div className={'relative rounded-3xl overflow-hidden border min-h-[500px] flex items-center p-8 md:p-12 lg:p-20 transition-colors duration-300 ' + (isFresherTrack ? 'bg-[#102324] border-emerald-400/30' : 'bg-[#121A2F] border-[#192440]')}>
+          <div className={'relative rounded-3xl overflow-hidden border min-h-[500px] flex items-center p-6 sm:p-8 md:p-12 lg:p-20 transition-colors duration-300 ' + (isFresherTrack ? 'bg-[#102324] border-emerald-400/30' : 'bg-[#121A2F] border-[#192440]')}>
             <div className={'absolute inset-0 bg-gradient-to-r z-10 ' + (isFresherTrack ? 'from-[#081715] via-[#081715]/90 to-transparent' : 'from-[#0B1020] via-[#0B1020]/90 to-transparent')}></div>
             <div className={'absolute inset-0 opacity-20 bg-cover bg-center ' + (isFresherTrack ? "bg-[url('https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=2000&q=80')]" : "bg-[url('https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=2000&q=80')]")}></div>
             
@@ -1268,13 +1272,13 @@ function AIChatbot({ userData }) {
     <>
       <button 
         onClick={() => setIsOpen(true)}
-        className={`fixed bottom-8 right-8 bg-[#3B82F6] hover:bg-[#60A5FA] text-white p-4 rounded-full shadow-2xl transition-transform z-50 ${isOpen ? 'scale-0' : 'scale-100'}`}
+        className={`fixed bottom-24 right-4 md:bottom-8 md:right-8 bg-[#3B82F6] hover:bg-[#60A5FA] text-white p-4 rounded-full shadow-2xl transition-transform z-50 ${isOpen ? 'scale-0' : 'scale-100'}`}
       >
         <MessageSquare size={24} />
       </button>
 
       {isOpen && (
-        <div className="fixed bottom-8 right-8 w-80 md:w-96 bg-[#121A2F] border border-[#192440] rounded-2xl shadow-2xl z-50 flex flex-col overflow-hidden animate-in slide-in-from-bottom-5">
+        <div className="fixed bottom-24 left-3 right-3 w-auto max-h-[75dvh] md:left-auto md:bottom-8 md:right-8 md:w-96 md:max-h-[85dvh] bg-[#121A2F] border border-[#192440] rounded-2xl shadow-2xl z-50 flex flex-col overflow-hidden animate-in slide-in-from-bottom-5">
           <div className="bg-[#0B1020] p-4 flex justify-between items-center border-b border-[#192440]">
             <div className="flex items-center gap-2 font-bold text-white"><BrainCircuit size={18} className="text-[#3B82F6]" /> Career Coach AI</div>
             <button onClick={() => setIsOpen(false)} className="text-slate-400 hover:text-white"><X size={18}/></button>
