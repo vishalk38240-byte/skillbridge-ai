@@ -50,6 +50,28 @@ function textFromParts(parts = []) {
   return parts.map(part => typeof part?.text === 'string' ? part.text : '').filter(Boolean).join('\n');
 }
 
+function toJsonSchema(schema) {
+  const typeMap = { STRING: 'string', INTEGER: 'integer', NUMBER: 'number', BOOLEAN: 'boolean', OBJECT: 'object', ARRAY: 'array' };
+  if (!schema || typeof schema !== 'object') return { type: 'object', properties: {}, additionalProperties: false };
+  const result = {};
+  if (schema.type) result.type = typeMap[schema.type] || schema.type.toLowerCase();
+  if (schema.description) result.description = schema.description;
+  if (schema.enum) result.enum = schema.enum;
+  if (schema.items) result.items = toJsonSchema(schema.items);
+  if (schema.properties) {
+    result.properties = Object.fromEntries(Object.entries(schema.properties).map(([key, value]) => [key, toJsonSchema(value)]));
+    result.required = Array.isArray(schema.required) ? schema.required : Object.keys(schema.properties);
+    result.additionalProperties = false;
+  }
+  return result;
+}
+
+function structuredResponseFormat(schema) {
+  return schema
+    ? { type: 'json_schema', json_schema: { name: 'skillbridge_response', strict: true, schema: toJsonSchema(schema) } }
+    : { type: 'json_object' };
+}
+
 function toGroqRequest(payload, streaming) {
   const generation = payload.generationConfig || {};
   const schema = generation.responseSchema;
@@ -74,7 +96,7 @@ function toGroqRequest(payload, streaming) {
     max_completion_tokens: Number.isFinite(generation.maxOutputTokens) ? generation.maxOutputTokens : (hasWebSearch ? 1800 : 900),
     stream: streaming
   };
-  if (wantsJson && !hasWebSearch) request.response_format = { type: 'json_object' };
+  if (wantsJson && !hasWebSearch) request.response_format = structuredResponseFormat(schema);
   if (hasWebSearch) {
     request.tools = [{ type: 'browser_search' }];
     request.tool_choice = 'required';
@@ -101,14 +123,46 @@ export default async function handler(req, res) {
 
   const streaming = body.stream === true;
   let upstream;
+  const groqRequest = toGroqRequest(body.payload, streaming);
   try {
     upstream = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: { Authorization: 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
-      body: JSON.stringify(toGroqRequest(body.payload, streaming))
+      body: JSON.stringify(groqRequest)
     });
   } catch {
     return sendJson(res, 502, { error: { message: 'Could not reach the AI service. Please try again.' } });
+  }
+
+  if (upstream.ok && !streaming && groqRequest.tools?.some(tool => tool.type === 'browser_search') && groqRequest.messages.length) {
+    // Groq browser search cannot run together with structured output. Search first,
+    // then use a second, schema-constrained completion to return reliable JSON.
+    const searchResult = await upstream.json().catch(() => null);
+    const searchText = searchResult?.choices?.[0]?.message?.content;
+    if (typeof searchText !== 'string' || !searchText.trim()) {
+      return sendJson(res, 502, { error: { message: 'The AI search completed without readable results. Please try again.' } });
+    }
+    const generation = body.payload.generationConfig || {};
+    const schema = generation.responseSchema;
+    const finalMessages = [
+      { role: 'system', content: 'Convert the supplied web research into the requested JSON structure. Preserve concrete source URLs and factual details; do not add unsupported facts.' },
+      { role: 'user', content: [textFromParts(body.payload.contents?.at(-1)?.parts), 'Web research to structure:', searchText].filter(Boolean).join('\n\n') }
+    ];
+    try {
+      upstream = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: CHAT_MODEL,
+          messages: finalMessages,
+          temperature: 0.1,
+          max_completion_tokens: Number.isFinite(generation.maxOutputTokens) ? generation.maxOutputTokens : 1800,
+          response_format: structuredResponseFormat(schema)
+        })
+      });
+    } catch {
+      return sendJson(res, 502, { error: { message: 'Could not format the AI search results. Please try again.' } });
+    }
   }
 
   if (!upstream.ok) {
