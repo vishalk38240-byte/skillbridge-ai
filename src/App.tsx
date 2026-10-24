@@ -135,6 +135,65 @@ const searchRealJobsWithAI = async (targetJob, isFresher, candidate = {}) => {
   return parseAIJson(await callAI(payload));
 };
 
+const offlineRequirementsForRole = (role) => {
+  const value = String(role || '').toLowerCase();
+  if (/front.?end|react|web developer|ui developer/.test(value)) return ['JavaScript', 'React', 'HTML', 'CSS', 'TypeScript', 'Git', 'API integration'];
+  if (/back.?end|node|server|api developer/.test(value)) return ['JavaScript', 'Node.js', 'REST APIs', 'SQL', 'Git', 'Authentication', 'Testing'];
+  if (/full.?stack/.test(value)) return ['JavaScript', 'React', 'Node.js', 'REST APIs', 'SQL', 'Git', 'Testing'];
+  if (/data analyst|business analyst|analytics/.test(value)) return ['SQL', 'Excel', 'Python', 'Data visualization', 'Statistics', 'Communication'];
+  if (/data scientist|machine learning|ml engineer|ai engineer/.test(value)) return ['Python', 'SQL', 'Statistics', 'Machine learning', 'Data visualization', 'Model evaluation'];
+  if (/design|ux|user experience/.test(value)) return ['Figma', 'User research', 'Wireframing', 'Prototyping', 'Accessibility', 'Design systems'];
+  if (/devops|cloud|site reliability/.test(value)) return ['Linux', 'Cloud platforms', 'Docker', 'CI/CD', 'Networking', 'Monitoring'];
+  if (/product manager|product owner/.test(value)) return ['Product strategy', 'Roadmapping', 'User research', 'Analytics', 'Prioritization', 'Communication'];
+  return ['Communication', 'Problem solving', 'Project planning', 'Digital tools', 'Teamwork', 'Role-specific experience'];
+};
+
+const buildOfflineJobSuggestions = (targetJob, candidate = {}) => {
+  const requirements = offlineRequirementsForRole(targetJob);
+  const profileText = [candidate.skills?.join(' '), candidate.headline, candidate.overview, candidate.experienceSummary, candidate.education, candidate.resumeText, candidate.additionalInfo].filter(Boolean).join(' ').toLowerCase();
+  const hasSkill = (skill) => {
+    const normalized = skill.toLowerCase();
+    return (candidate.skills || []).some(item => {
+      const current = String(item).toLowerCase();
+      return current === normalized || current.includes(normalized) || normalized.includes(current);
+    }) || profileText.includes(normalized);
+  };
+  const matched = requirements.filter(hasSkill);
+  const missing = requirements.filter(skill => !hasSkill(skill));
+  const titles = [targetJob, `${targetJob} Associate`, `${targetJob} - Early Career`, `${targetJob} - Skills Aligned`];
+  return titles.map((title, index) => ({
+    id: `offline-${Date.now()}-${index}`,
+    title,
+    company: 'Suggested role search',
+    location: candidate.location || 'Choose a location on the job board',
+    url: `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(title)}${candidate.location ? `&location=${encodeURIComponent(candidate.location)}` : ''}`,
+    requirements_summary: `Local comparison based on common ${targetJob} skills: ${requirements.join(', ')}. These are suggested search terms, not a verified employer listing.`,
+    matched_skills: matched,
+    missing_skills: missing,
+    match_percentage: Math.round(matched.length / Math.max(requirements.length, 1) * 100),
+    match_summary: `Local skills comparison: ${matched.length} of ${requirements.length} common role skills appear in your saved profile.`,
+    offlineSuggestion: true
+  }));
+};
+
+const buildOfflineJobAnalysis = (candidate = {}, job = {}) => {
+  const requirements = [...new Set([...(job.matched_skills || []), ...(job.missing_skills || [])])];
+  const matched = job.matched_skills || [];
+  const missing = job.missing_skills || [];
+  return {
+    matched_skills: matched,
+    missing_skills: missing,
+    skill_match_percentage: requirements.length ? Math.round(matched.length / requirements.length * 100) : Number(job.match_percentage) || 0,
+    roadmap_tasks: missing.slice(0, 5).map((skill, index) => ({
+      id: `local-task-${index}-${Date.now()}`,
+      skill,
+      description: `Study ${skill}, complete a small practical exercise related to ${job.title}, and add the result to your portfolio.`,
+      estimated_duration: index === 0 ? '1 week' : '1–2 weeks',
+      completed: false
+    })),
+    offlineFallback: true
+  };
+};
 const analyzeSpecificJobFit = async (resumeText, jobData, isFresher) => {
   const fresherPrompt = isFresher ? "Focus heavily on foundational skills, portfolio building, and entry-level requirements since this is a fresher." : "Focus on bridging the gap between their current experience and the specific requirements.";
   const payload = {
@@ -892,7 +951,26 @@ function ProfileEditor({ user, userData, onSaved, onComplete }) {
   const loadExample=()=>{const sample=exampleProfiles[exampleIndex];setForm({...sample});setExampleIndex(index=>(index+1)%exampleProfiles.length);setSaved(false);setMatchNotice('Example '+(exampleIndex+1)+' of '+exampleProfiles.length+' loaded. Click again to try the next one.');setError('');};
   const buildPatch=()=>({...form,name:form.name.trim(),skills:form.skills.split(',').map(skill=>skill.trim()).filter(Boolean).filter((skill,index,all)=>all.findIndex(value=>value.toLocaleLowerCase()===skill.toLocaleLowerCase())===index),location:form.location.trim(),headline:form.headline.trim(),overview:form.overview.trim(),education:form.education.trim(),experienceSummary:form.experienceSummary.trim(),resumeText:form.resumeText.trim(),targetJob:form.targetJob.trim(),additionalInfo:form.additionalInfo.trim()});
   const save=async event=>{event.preventDefault();if(!form.name.trim()){setError('Please enter your name.');return;}setSaving(true);setError('');try{const patch=buildPatch();await saveUserProfile(user.uid,patch);onSaved(patch);setSaved(true);}catch(err){setError(err.message||'Your profile could not be saved. Please try again.');}finally{setSaving(false);}};
-  const matchJobs=async()=>{if(!form.name.trim()){setError('Add your name and save your profile before searching.');return;}if(!form.targetJob.trim()){setError('Add a target role before searching for matching jobs.');return;}if(!form.resumeText.trim()||form.resumeText.trim().length<40||form.resumeText.trim().split(/\s+/).length<8){setError('Add at least a few lines about your experience, education, or projects so roles can be matched to your profile.');return;}setMatching(true);setError('');setMatchNotice('');try{const patch=buildPatch();await saveUserProfile(user.uid,patch);onSaved(patch);const jobs=await searchRealJobsWithAI(patch.targetJob,patch.isFresher,patch);if(!Array.isArray(jobs)||jobs.length===0)throw new Error('No job listings were returned. Try another target role.');const jobsWithIds=jobs.map((job,index)=>({...job,id:job.id||'job-'+Date.now()+'-'+index}));await saveUserProfile(user.uid,{foundJobs:jobsWithIds,exampleRequirements:[]});onSaved({...patch,foundJobs:jobsWithIds,exampleRequirements:[]});setSaved(true);setMatchNotice('Found '+jobsWithIds.length+' matching roles. Your profile and matches are saved.');}catch(err){setError(err.message||'Could not find matching jobs. Please try again.');}finally{setMatching(false);}};
+  const matchJobs=async()=>{
+    if(!form.name.trim()){setError('Add your name and save your profile before searching.');return;}
+    if(!form.targetJob.trim()){setError('Add a target role before searching for matching jobs.');return;}
+    if(!form.resumeText.trim()||form.resumeText.trim().length<40||form.resumeText.trim().split(/\s+/).length<8){setError('Add at least a few lines about your experience, education, or projects so roles can be matched to your profile.');return;}
+    setMatching(true);setError('');setMatchNotice('');
+    const patch=buildPatch();
+    try{
+      await saveUserProfile(user.uid,patch);onSaved(patch);
+      const jobs=await searchRealJobsWithAI(patch.targetJob,patch.isFresher,patch);
+      if(!Array.isArray(jobs)||jobs.length===0)throw new Error('No job listings were returned.');
+      const jobsWithIds=jobs.map((job,index)=>({...job,id:job.id||'job-'+Date.now()+'-'+index}));
+      await saveUserProfile(user.uid,{foundJobs:jobsWithIds,exampleRequirements:[]});onSaved({...patch,foundJobs:jobsWithIds,exampleRequirements:[]});setSaved(true);
+      setMatchNotice('Found '+jobsWithIds.length+' current job listings and matched them to your profile.');
+    }catch(err){
+      console.warn('Live job search unavailable; using local matching.',err);
+      const jobs=buildOfflineJobSuggestions(patch.targetJob,patch);
+      await saveUserProfile(user.uid,{foundJobs:jobs,exampleRequirements:[]});onSaved({...patch,foundJobs:jobs,exampleRequirements:[]});setSaved(true);
+      setMatchNotice('AI search is unavailable. Showing local role suggestions and profile skill matches; these are not verified live listings.');
+    }finally{setMatching(false);}
+  };
   const input='w-full bg-[#0B1020] border border-[#263554] rounded-xl px-4 py-3 text-white placeholder-slate-600 focus:outline-none focus:border-[#60A5FA]';const label='block text-sm font-medium text-slate-300 mb-2';
   return <div className="max-w-4xl mx-auto pb-10 animate-in fade-in duration-300"><header className="mb-7 flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[0.2em] text-[#60A5FA]">Your details, your choice</p><h1 className="text-4xl font-bold mt-2 text-white">My Profile</h1><p className="text-slate-400 mt-2">Save your profile whenever you like. Job matching is a separate step you control.</p></div><div className="flex gap-2"><button type="button" onClick={loadExample} className="text-sm text-cyan-200 hover:text-white px-4 py-2 rounded-lg border border-cyan-400/30">Load example ({exampleIndex+1}/{exampleProfiles.length})</button><button type="button" onClick={onComplete} className="text-sm text-slate-300 hover:text-white px-4 py-2 rounded-lg border border-[#263554]">Back to dashboard</button></div></header><form onSubmit={save} className="bg-[#121A2F] border border-[#192440] rounded-3xl p-6 md:p-8 space-y-7">{error&&<p role="alert" className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-300">{error}</p>}<section><h2 className="text-lg font-semibold text-white mb-4">About you</h2><div className="grid md:grid-cols-2 gap-5"><label className={label}>Full name<input required value={form.name} onChange={e=>update('name',e.target.value)} className={input+' mt-2'} placeholder="Your name" autoComplete="name"/></label><label className={label}>Location<input value={form.location} onChange={e=>update('location',e.target.value)} className={input+' mt-2'} placeholder="City, country, or time zone"/></label><label className={label+' md:col-span-2'}>Professional headline<input value={form.headline} onChange={e=>update('headline',e.target.value)} className={input+' mt-2'} placeholder="Your role or specialty"/></label><label className={label+' md:col-span-2'}>Career overview<textarea rows={3} value={form.overview} onChange={e=>update('overview',e.target.value)} className={input+' mt-2 resize-y'} placeholder="A short introduction to your experience and goals"/></label></div></section><section><h2 className="text-lg font-semibold text-white mb-4">Experience and goals</h2><div className="grid md:grid-cols-2 gap-5"><label className={label}>Key skills<input value={form.skills} onChange={e=>update('skills',e.target.value)} className={input+' mt-2'} placeholder="Separate skills with commas"/></label><label className={label}>Education<input value={form.education} onChange={e=>update('education',e.target.value)} className={input+' mt-2'} placeholder="Degree, school, or current studies"/></label><label className={label+' md:col-span-2'}>Work, internships, or projects<textarea rows={3} value={form.experienceSummary} onChange={e=>update('experienceSummary',e.target.value)} className={input+' mt-2 resize-y'} placeholder="Relevant work, volunteering, internships, or projects"/></label><div className="relative"><label className={label} htmlFor="profile-target-role">Target role</label><input id="profile-target-role" role="combobox" aria-expanded={showRoleSuggestions&&matchingRoles.length>0} aria-controls="profile-role-suggestions" value={form.targetJob} onFocus={()=>setShowRoleSuggestions(true)} onBlur={()=>setTimeout(()=>setShowRoleSuggestions(false),120)} onChange={e=>{update('targetJob',e.target.value);setShowRoleSuggestions(true);}} onKeyDown={e=>{if(e.key==='Escape')setShowRoleSuggestions(false);if(e.key==='Enter'&&showRoleSuggestions&&matchingRoles.length){e.preventDefault();selectRole(matchingRoles[0]);}}} className={input} placeholder="Role you want to work toward"/>{showRoleSuggestions&&matchingRoles.length>0&&<div id="profile-role-suggestions" role="listbox" className="absolute z-30 top-full left-0 right-0 mt-2 rounded-xl border border-[#334155] bg-[#121A2F] shadow-xl overflow-hidden">{matchingRoles.map(role=><button key={role} type="button" role="option" onMouseDown={e=>e.preventDefault()} onClick={()=>selectRole(role)} className="block w-full text-left px-4 py-3 text-sm text-slate-200 hover:bg-[#1B2A45]">{role}</button>)}</div>}</div><label className={label}>Preferred work type<select value={form.preferredWorkType} onChange={e=>update('preferredWorkType',e.target.value)} className={input+' mt-2'}>{['Any','Full-time','Part-time','Contract','Internship'].map(type=><option key={type}>{type}</option>)}</select></label><label className={label+' md:col-span-2'}>Resume text<textarea rows={5} value={form.resumeText} onChange={e=>update('resumeText',e.target.value)} className={input+' mt-2 resize-y font-mono text-sm'} placeholder="Paste your resume details here"/></label><label className={label+' md:col-span-2'}>Anything else you'd like included<textarea rows={3} value={form.additionalInfo} onChange={e=>update('additionalInfo',e.target.value)} className={input+' mt-2 resize-y'} placeholder="Certifications, links, achievements, preferences, or other details"/></label><fieldset className="md:col-span-2"><legend className={label}>Career stage</legend><div className="flex flex-wrap gap-3"><button type="button" onClick={()=>update('isFresher',true)} className={'rounded-xl px-4 py-2 border '+(form.isFresher?'bg-blue-500/15 border-blue-400 text-blue-200':'border-[#263554] text-slate-400')}>Fresher / early career</button><button type="button" onClick={()=>update('isFresher',false)} className={'rounded-xl px-4 py-2 border '+(!form.isFresher?'bg-blue-500/15 border-blue-400 text-blue-200':'border-[#263554] text-slate-400')}>Experienced</button></div></fieldset></div></section><div className="border-t border-[#263554] pt-6"><div className="flex flex-wrap items-center gap-4"><button type="submit" disabled={saving||matching} className="rounded-xl bg-[#3B82F6] hover:bg-[#60A5FA] disabled:opacity-60 px-6 py-3 text-white font-semibold">{saving?'Saving…':'Save profile'}</button>{saved&&<p role="status" className="text-sm text-emerald-300 flex items-center gap-2"><CheckCircle size={16}/> Saved. This profile is now reflected on your dashboard.</p>}</div><div className="mt-7 rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-5"><h2 className="text-base font-semibold text-white">Ready to look for work?</h2><p className="text-sm text-slate-400 mt-1">This separate step searches job listings and compares their requirements with your resume, skills, experience, and career stage.</p><button type="button" onClick={matchJobs} disabled={saving||matching} className="mt-4 rounded-xl bg-cyan-300 hover:bg-cyan-200 disabled:opacity-60 px-5 py-3 text-slate-950 font-bold">{matching?'Searching and matching…':'Find and match jobs'}</button>{matchNotice&&<p role="status" className="mt-3 text-sm text-emerald-300">{matchNotice}</p>}</div></div></form></div>;
 }
@@ -937,8 +1015,8 @@ function JobMarket({ user, userData, onNavigate }) {
   return (
     <div className="max-w-6xl mx-auto">
       <header className="mb-12">
-        <h1 className="text-4xl font-bold mb-2 text-white">Live Job Market</h1>
-        <p className="text-slate-400 text-lg">Active roles found for: <span className="text-[#60A5FA] font-medium">{userData.targetJob}</span></p>
+        <h1 className="text-4xl font-bold mb-2 text-white">{userData.foundJobs.some(job=>job.offlineSuggestion)?"Role Suggestions":"Live Job Market"}</h1>
+        <p className="text-slate-400 text-lg">{userData.foundJobs.some(job=>job.offlineSuggestion)?"Local skill matches and job-board searches for":"Active roles found for:"} <span className="text-[#60A5FA] font-medium">{userData.targetJob}</span></p>{userData.foundJobs.some(job=>job.offlineSuggestion)&&<p className="mt-3 rounded-xl border border-amber-400/20 bg-amber-400/5 px-4 py-3 text-sm text-amber-200">AI is unavailable. These role suggestions use a local skills comparison; they are not verified vacancies. Open a job-board search to see current listings.</p>}
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -961,7 +1039,7 @@ function JobMarket({ user, userData, onNavigate }) {
                 </p>
                 <div className="mb-6 rounded-2xl border border-[#192440] bg-[#0B1020] p-5">
                   <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-                    <span className="text-xs font-bold uppercase tracking-wide text-slate-400">Profile match</span>
+                    <span className="text-xs font-bold uppercase tracking-wide text-slate-400">{job.offlineSuggestion?"Local skills match":"Profile match"}</span>
                     <span className="text-lg font-extrabold text-emerald-300">{Number.isFinite(Number(job.match_percentage)) ? `${Math.max(0, Math.min(100, Number(job.match_percentage)))}%` : '—'}</span>
                   </div>
                   {job.match_summary && <p className="text-sm text-slate-300 leading-relaxed mb-3">{job.match_summary}</p>}
@@ -973,7 +1051,7 @@ function JobMarket({ user, userData, onNavigate }) {
               
               <div className="flex justify-between items-center mt-auto">
                 <a href={job.url} target="_blank" rel="noopener noreferrer" className="text-sm text-slate-400 hover:text-white inline-flex items-center gap-1.5 transition-colors font-medium">
-                  View original <ExternalLink size={14} />
+                  {job.offlineSuggestion?"Search live jobs":"View original"} <ExternalLink size={14} />
                 </a>
                 <button 
                   onClick={() => onNavigate(`analysis-${job.id}`)}
@@ -1006,8 +1084,14 @@ function SpecificAnalysis({ user, userData, jobId, onNavigate }) {
     setIsAnalyzing(true);
     setAnalysisError('');
     try {
-      const result = await analyzeSpecificJobFit(userData.resumeText, job, userData.isFresher);
-      const formattedTasks = result.roadmap_tasks.map(t => ({ ...t, id: t.id || crypto.randomUUID(), completed: false }));
+      let result;
+      try {
+        result = await analyzeSpecificJobFit(userData.resumeText, job, userData.isFresher);
+      } catch (aiError) {
+        console.warn('AI analysis unavailable; using local skill comparison.', aiError);
+        result = buildOfflineJobAnalysis(userData, job);
+      }
+      const formattedTasks = (result.roadmap_tasks || []).map(t => ({ ...t, id: t.id || crypto.randomUUID(), completed: Boolean(t.completed) }));
       const newAnalysis = { ...result, roadmap_tasks: formattedTasks, timestamp: new Date().toISOString() };
       const updatedAnalyses = { ...(userData.analyses || {}), [jobId]: newAnalysis };
       await saveUserProfile(user.uid, { analyses: updatedAnalyses });
@@ -1057,7 +1141,7 @@ function SpecificAnalysis({ user, userData, jobId, onNavigate }) {
         </div>
       </div>
 
-      <section className="mb-8 rounded-3xl border border-[#192440] bg-[#121A2F] p-7"><div className="mb-5"><p className="text-xs uppercase tracking-widest text-[#60A5FA] font-bold">Mentor matches</p><h2 className="text-2xl text-white font-bold mt-2">People who can help close your skill gaps</h2><p className="text-sm text-slate-400 mt-2">{mentorRecommendations.hasSkillMatches?'Matched by missing skills, then ranked by rating.':'No exact skill match found; these are the highest-rated mentors.'}</p></div><div className="grid md:grid-cols-3 gap-4">{mentorRecommendations.mentors.map(mentor=><article key={mentor.name} className="rounded-2xl border border-[#263554] bg-[#0B1020] p-5"><div className="flex items-center gap-3"><img src={mentor.img} alt={mentor.name} className="w-12 h-12 rounded-xl object-cover"/><div><h3 className="font-bold text-white">{mentor.name}</h3><p className="text-xs text-amber-300">★ {mentor.rating.toFixed(1)} · {mentor.reviewCount} reviews</p></div></div><p className="text-xs text-slate-400 mt-3">{mentor.role}</p><div className="flex flex-wrap gap-1.5 mt-3">{(mentor.matchedGapSkills.length?mentor.matchedGapSkills:mentor.skills.slice(0,2)).map(skill=><span key={skill} className="text-[11px] rounded-full bg-[#17233A] text-slate-200 px-2.5 py-1">{skill}</span>)}</div><p className="text-xs text-slate-400 mt-3 line-clamp-2">“{mentor.review}”</p></article>)}</div><p className="text-[11px] text-slate-600 mt-4">Mentors, ratings, and reviews are sample preview content.</p></section>
+      {analysis.offlineFallback&&<p className="mb-6 rounded-xl border border-amber-400/20 bg-amber-400/5 px-4 py-3 text-sm text-amber-200">AI is unavailable. This skill comparison and learning plan were generated locally from your saved profile and the role suggestions, not by an AI model.</p>}\n      <section className="mb-8 rounded-3xl border border-[#192440] bg-[#121A2F] p-7"><div className="mb-5"><p className="text-xs uppercase tracking-widest text-[#60A5FA] font-bold">Mentor matches</p><h2 className="text-2xl text-white font-bold mt-2">People who can help close your skill gaps</h2><p className="text-sm text-slate-400 mt-2">{mentorRecommendations.hasSkillMatches?'Matched by missing skills, then ranked by rating.':'No exact skill match found; these are the highest-rated mentors.'}</p></div><div className="grid md:grid-cols-3 gap-4">{mentorRecommendations.mentors.map(mentor=><article key={mentor.name} className="rounded-2xl border border-[#263554] bg-[#0B1020] p-5"><div className="flex items-center gap-3"><img src={mentor.img} alt={mentor.name} className="w-12 h-12 rounded-xl object-cover"/><div><h3 className="font-bold text-white">{mentor.name}</h3><p className="text-xs text-amber-300">★ {mentor.rating.toFixed(1)} · {mentor.reviewCount} reviews</p></div></div><p className="text-xs text-slate-400 mt-3">{mentor.role}</p><div className="flex flex-wrap gap-1.5 mt-3">{(mentor.matchedGapSkills.length?mentor.matchedGapSkills:mentor.skills.slice(0,2)).map(skill=><span key={skill} className="text-[11px] rounded-full bg-[#17233A] text-slate-200 px-2.5 py-1">{skill}</span>)}</div><p className="text-xs text-slate-400 mt-3 line-clamp-2">“{mentor.review}”</p></article>)}</div><p className="text-[11px] text-slate-600 mt-4">Mentors, ratings, and reviews are sample preview content.</p></section>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="space-y-8 lg:col-span-1">
           <div className="bg-[#121A2F] p-8 rounded-3xl border border-[#192440]">
