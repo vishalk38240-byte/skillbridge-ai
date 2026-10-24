@@ -1,19 +1,19 @@
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
-import geminiHandler from './api/gemini.js';
+import aiHandler from './api/ai.js';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
-  if (!process.env.GEMINI_API_KEY && env.GEMINI_API_KEY) process.env.GEMINI_API_KEY = env.GEMINI_API_KEY;
+  if (!process.env.GROQ_API_KEY && env.GROQ_API_KEY) process.env.GROQ_API_KEY = env.GROQ_API_KEY;
 
   return {
     plugins: [
       react(),
       {
-        name: 'local-gemini-api',
+        name: 'local-ai-api',
         configureServer(server) {
-          server.middlewares.use('/api/gemini', (req, res) => {
-            void geminiHandler(req, res);
+          server.middlewares.use('/api/ai', (req, res) => {
+            void aiHandler(req, res);
           });
         }
       }

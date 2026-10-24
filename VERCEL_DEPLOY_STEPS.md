@@ -5,7 +5,7 @@ This guide publishes the project to a hosted `*.vercel.app` address so it does n
 ## Files in this download
 
 - `src/` — the website
-- `api/gemini.js` — the server-side Gemini API endpoint
+- `api/ai.js` — the server-side Groq API endpoint
 - `package.json` and lockfiles — app dependencies and build scripts
 - `.env.example` — the environment variable names only (no secret values)
 - `PROJECT_PROGRESS.md` — project handoff notes
@@ -14,7 +14,7 @@ The archive intentionally omits `node_modules/`, `.pnpm-store/`, and `.env.local
 
 ## Before you begin
 
-You need a GitHub account, a Vercel account, and Node.js installed on your computer. To enable AI, you also need your own Gemini API key. For real cloud login and saved profiles, you need a Firebase project.
+You need a GitHub account, a Vercel account, and Node.js installed on your computer. To enable AI, create an API key at https://console.groq.com/keys. For real cloud login and saved profiles, you need a Firebase project.
 
 ## Step 1 — Extract the project
 
@@ -58,7 +58,7 @@ Open [vercel.com/dashboard](https://vercel.com/dashboard), select the new projec
 
 Add these variables as needed:
 
-- `GEMINI_API_KEY` — your Gemini API key. Keep this name exactly; never add a `VITE_` prefix.
+- `GROQ_API_KEY` — your Groq API key. Keep this name exactly; never add a `VITE_` prefix.
 - For Firebase-backed accounts and cloud-saved profiles, add all six values from `.env.example`: `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_STORAGE_BUCKET`, `VITE_FIREBASE_MESSAGING_SENDER_ID`, and `VITE_FIREBASE_APP_ID`.
 
 Choose the **Production** environment (and **Preview** too if you want preview deployments to use the same services). Enter the real values in Vercel’s dashboard, not in this guide or a shared ZIP.
@@ -81,7 +81,7 @@ After changing files in this folder, run `vercel --prod` again. If you change en
 
 ## What works without optional services
 
-The public website can deploy without Firebase or Gemini configuration. Without Gemini, AI features will show an API configuration error. Without Firebase, sign-in/profile behavior uses browser-local demo storage and is not a shared, cloud-backed account. Add the corresponding environment variables and redeploy to enable those services.
+The public website can deploy without Firebase or Groq configuration. Without Groq, AI features will show an API configuration error. Without Firebase, sign-in/profile behavior uses browser-local demo storage and is not a shared, cloud-backed account. Add the corresponding environment variables and redeploy to enable those services.
 
 ## Official guides
 

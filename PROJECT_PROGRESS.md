@@ -21,7 +21,7 @@ SkillBridge AI is a career support website for early-career and experienced job 
 - Dashboard skill comparison. Sample profiles now carry clearly labeled fictional role requirements, so after loading and saving a sample, the dashboard can show a match percentage, progress line, and skill gaps even before a real job search.
 - Real job search/matching flow. When successful, real listing requirements replace the sample preview.
 - Career roadmaps, mentor/specialist recommendations, skill analysis, and career-news areas are part of the project UI.
-- AI requests are routed through `api/gemini.js`, keeping the Gemini key server-side.
+- AI requests are routed through `api/ai.js`, keeping the Groq key server-side. Chat uses GPT-OSS 20B; job and industry-news lookups use Groq browser search with the same model.
 
 ## Most recent fix
 
@@ -41,17 +41,17 @@ From the project folder:
 ## Environment and deployment
 
 - `.env.example` documents the environment variables.
-- `GEMINI_API_KEY` is required for server-side AI features. Configure it in the local environment or the deployment provider's server-side environment settings. Never put this key in a `VITE_` variable or commit a real key.
+- `GROQ_API_KEY` is required for server-side AI features. Configure it in the local environment or the deployment provider's server-side environment settings. Never put this key in a `VITE_` variable or commit a real key.
 - Firebase variables in `.env.example` are optional for local UI preview, but must be configured for Firebase-backed accounts and cloud profile storage.
 - `.env.local` is intentionally ignored by Git. Do not share it or include it in a handoff archive because it may contain secrets.
-- `api/gemini.js` is a serverless endpoint intended for deployment environments that support the Vercel API route. AI features require that endpoint and a valid Gemini key.
+- `api/ai.js` is a serverless endpoint intended for deployment environments that support the Vercel API route. AI features require that endpoint and a valid Groq key.
 - Local development with the Vite server alone may not run the Vercel serverless API route. If AI calls fail locally, use the Vercel development runtime or deploy the project with the environment variables configured.
 
 ## Key files
 
 - `src/App.tsx` — application UI, dashboard, sample profiles, profile form, job matching and app flow.
 - `src/index.css` — global styles and animations.
-- `api/gemini.js` — server-side Gemini endpoint.
+- `api/ai.js` — server-side Groq endpoint.
 - `index.html` — Vite page entry.
 - `package.json` — dependencies and scripts.
 - `.env.example` — names of supported environment variables; values are blank placeholders.
@@ -60,7 +60,7 @@ From the project folder:
 
 1. Preview the app and confirm sample load → save profile → dashboard progress behavior.
 2. Set up Firebase if accounts and profiles need to persist across browsers/devices.
-3. Set `GEMINI_API_KEY` in the deployment environment and verify the serverless AI endpoint there.
+3. Set `GROQ_API_KEY` in the deployment environment and verify the serverless AI endpoint there.
 4. Deploy to Vercel and verify authentication, profile persistence, job matching, and AI features with real configuration.
 5. Consider splitting the large frontend bundle if production load performance needs improvement.
 
