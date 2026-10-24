@@ -67,9 +67,19 @@ function toJsonSchema(schema) {
 }
 
 function structuredResponseFormat(schema) {
-  return schema
-    ? { type: 'json_schema', json_schema: { name: 'skillbridge_response', strict: true, schema: toJsonSchema(schema) } }
-    : { type: 'json_object' };
+  if (!schema) return { type: 'json_object' };
+  let jsonSchema = toJsonSchema(schema);
+  // Groq strict mode requires an object at the schema root. Wrap array schemas
+  // and let the app unwrap the `result` property after parsing.
+  if (jsonSchema.type !== 'object') {
+    jsonSchema = {
+      type: 'object',
+      properties: { result: jsonSchema },
+      required: ['result'],
+      additionalProperties: false
+    };
+  }
+  return { type: 'json_schema', json_schema: { name: 'skillbridge_response', strict: true, schema: jsonSchema } };
 }
 
 function toGroqRequest(payload, streaming) {
